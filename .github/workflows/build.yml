@@ -55,8 +55,18 @@ jobs:
       - name: Hot-patch the Dockerfile
         if: steps.check_build.outputs.build_needed == 'true'
         run: |
+          # Fix the C-compiler architecture flag for ARM
           sed -i 's/-march=${TARGET_CPU}/-mcpu=${TARGET_CPU}/g' docker/musl.Dockerfile
+          
+          # Inject 16KB memory page size support
           sed -i '/set -o allexport/a \    export JEMALLOC_SYS_WITH_LG_PAGE=14' docker/musl.Dockerfile
+
+          # Fix the Alpine linker crash by allowing dynamic bindgen compilation
+          sed -i 's/bindgen-static,//g' docker/musl.Dockerfile
+
+          # Fix the hardcoded output path so it grabs the binary from the max-perf folder
+          sed -i 's|/release/|/${RUST_PROFILE}/|g' docker/musl.Dockerfile
+          
           echo "Dockerfile patched successfully."
 
       # 6. Setup emulation and build tools for ARM64 compilation
