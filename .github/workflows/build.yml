@@ -55,7 +55,7 @@ jobs:
       - name: Hot-patch the Dockerfile for 16KB pages
         if: steps.check_build.outputs.build_needed == 'true'
         run: |
-          sed -i 's/cargo build/env JEMALLOC_SYS_WITH_LG_PAGE=14 cargo build/g' docker/Dockerfile
+          sed -i 's/xx-cargo build/env JEMALLOC_SYS_WITH_LG_PAGE=14 xx-cargo build/g' docker/Dockerfile
           echo "Dockerfile patched successfully."
 
       # 6. Setup emulation and build tools for ARM64 compilation
