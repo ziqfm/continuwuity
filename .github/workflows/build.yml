@@ -51,7 +51,7 @@ jobs:
         run: |
           git clone --branch ${{ steps.get_tag.outputs.latest_tag }} --depth 1 https://forgejo.ellis.link/continuwuation/continuwuity.git .
 
-      # 5. Hot-patch the Dockerfile for 16KB Raspberry Pi 5 memory pages
+      # 5. Hot-patch the musl Dockerfile for ARM64 bugs, 16KB pages, and maxperf paths
       - name: Hot-patch the Dockerfile
         if: steps.check_build.outputs.build_needed == 'true'
         run: |
