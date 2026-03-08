@@ -52,10 +52,11 @@ jobs:
           git clone --branch ${{ steps.get_tag.outputs.latest_tag }} --depth 1 https://forgejo.ellis.link/continuwuation/continuwuity.git .
 
       # 5. Hot-patch the Dockerfile for 16KB Raspberry Pi 5 memory pages
-      - name: Hot-patch the Dockerfile for 16KB pages
+      - name: Hot-patch the Dockerfile
         if: steps.check_build.outputs.build_needed == 'true'
         run: |
-          sed -i 's/xx-cargo build/env JEMALLOC_SYS_WITH_LG_PAGE=14 xx-cargo build/g' docker/Dockerfile
+          sed -i 's/-march=${TARGET_CPU}/-mcpu=${TARGET_CPU}/g' docker/musl.Dockerfile
+          sed -i '/set -o allexport/a \    export JEMALLOC_SYS_WITH_LG_PAGE=14' docker/musl.Dockerfile
           echo "Dockerfile patched successfully."
 
       # 6. Setup emulation and build tools for ARM64 compilation
@@ -73,7 +74,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: docker/musl.Dockerfile
           platforms: linux/arm64
           push: true
           build-args: |
