@@ -51,21 +51,15 @@ jobs:
         run: |
           git clone --branch ${{ steps.get_tag.outputs.latest_tag }} --depth 1 https://forgejo.ellis.link/continuwuation/continuwuity.git .
 
-      # 5. Hot-patch the musl Dockerfile for ARM64 bugs, 16KB pages, and maxperf paths
+      # 5. Hot-patch the musl Dockerfile for ARM64 bugs and 16KB pages
       - name: Hot-patch the Dockerfile
         if: steps.check_build.outputs.build_needed == 'true'
         run: |
           # Fix the C-compiler architecture flag for ARM
-          sed -i 's/-march=${TARGET_CPU}/-mcpu=${TARGET_CPU}/g' docker/musl.Dockerfile
+          sed -i 's/-march=${TARGET_CPU}/-mcpu=${TARGET_CPU}/g' docker/Dockerfile
           
           # Inject 16KB memory page size support
-          sed -i '/set -o allexport/a \    export JEMALLOC_SYS_WITH_LG_PAGE=14' docker/musl.Dockerfile
-
-          # Fix the Alpine linker crash by allowing dynamic bindgen compilation
-          sed -i 's/bindgen-static,//g' docker/musl.Dockerfile
-
-          # Fix the hardcoded output path so it grabs the binary from the max-perf folder
-          sed -i 's|/release/|/${RUST_PROFILE}/|g' docker/musl.Dockerfile
+          sed -i '/set -o allexport/a \    export JEMALLOC_SYS_WITH_LG_PAGE=14' docker/Dockerfile
           
           echo "Dockerfile patched successfully."
 
@@ -84,7 +78,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/musl.Dockerfile
+          file: docker/Dockerfile
           platforms: linux/arm64
           push: true
           build-args: |
