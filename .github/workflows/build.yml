@@ -37,7 +37,7 @@ jobs:
       - name: Check if we already built this version
         id: check_build
         run: |
-          if docker manifest inspect ghcr.io/${{ github.repository_owner }}/continuwuity-16k:${{ steps.get_tag.outputs.latest_tag }} > /dev/null 2>&1; then
+          if docker manifest inspect ghcr.io/${{ github.repository_owner }}/continuwuity:${{ steps.get_tag.outputs.latest_tag }} > /dev/null 2>&1; then
             echo "Version ${{ steps.get_tag.outputs.latest_tag }} already exists. Skipping the 30-minute build."
             echo "build_needed=false" >> $GITHUB_OUTPUT
           else
