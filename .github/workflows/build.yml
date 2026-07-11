@@ -7,7 +7,7 @@ on:
 
 jobs:
   check-and-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       packages: write
       contents: read
@@ -38,10 +38,10 @@ jobs:
         id: check_build
         run: |
           if docker manifest inspect ghcr.io/${{ github.repository_owner }}/continuwuity:${{ steps.get_tag.outputs.latest_tag }} > /dev/null 2>&1; then
-            echo "Version ${{ steps.get_tag.outputs.latest_tag }} already exists. Skipping the 30-minute build."
+            echo "Version ${{ steps.get_tag.outputs.latest_tag }} already exists. Skipping the build."
             echo "build_needed=false" >> $GITHUB_OUTPUT
           else
-            echo "Version ${{ steps.get_tag.outputs.latest_tag }} is new! Starting the heavy compilation."
+            echo "Version ${{ steps.get_tag.outputs.latest_tag }} is new! Starting native compilation."
             echo "build_needed=true" >> $GITHUB_OUTPUT
           fi
 
@@ -51,22 +51,20 @@ jobs:
         run: |
           git clone --branch ${{ steps.get_tag.outputs.latest_tag }} --depth 1 https://forgejo.ellis.link/continuwuation/continuwuity.git .
 
-      # 5. Hot-patch the musl Dockerfile for ARM64 bugs and 16KB pages
+      # 5. Dynamically inject our patches into the upstream Dockerfile
       - name: Hot-patch the Dockerfile
         if: steps.check_build.outputs.build_needed == 'true'
         run: |
-          # Fix the C-compiler architecture flag for ARM
+          # Fix the C-compiler architecture flag for ARM (clang prefers -mcpu over -march for ARM64)
           sed -i 's/-march=${TARGET_CPU}/-mcpu=${TARGET_CPU}/g' docker/Dockerfile
           
-          # Inject 16KB memory page size support
+          # Inject 16KB memory page size support (Required for jemalloc on some modern ARM64 kernels)
           sed -i '/set -o allexport/a \    export JEMALLOC_SYS_WITH_LG_PAGE=14' docker/Dockerfile
           
+          # Inject extreme optimization: force single thread codegen for absolute maximum "fat" LTO efficiency
+          sed -i '/set -o allexport/a \    export CARGO_PROFILE_RELEASE_MAX_PERF_CODEGEN_UNITS=1' docker/Dockerfile
+          
           echo "Dockerfile patched successfully."
-
-      # 6. Setup emulation and build tools for ARM64 compilation
-      - name: Set up QEMU (for ARM64 emulation)
-        if: steps.check_build.outputs.build_needed == 'true'
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         if: steps.check_build.outputs.build_needed == 'true'
