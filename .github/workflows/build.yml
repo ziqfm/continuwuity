@@ -7,7 +7,7 @@ on:
 
 jobs:
   check-and-build:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
@@ -38,10 +38,10 @@ jobs:
         id: check_build
         run: |
           if docker manifest inspect ghcr.io/${{ github.repository_owner }}/continuwuity:${{ steps.get_tag.outputs.latest_tag }} > /dev/null 2>&1; then
-            echo "Version ${{ steps.get_tag.outputs.latest_tag }} already exists. Skipping the build."
+            echo "Version ${{ steps.get_tag.outputs.latest_tag }} already exists. Skipping the 30-minute build."
             echo "build_needed=false" >> $GITHUB_OUTPUT
           else
-            echo "Version ${{ steps.get_tag.outputs.latest_tag }} is new! Starting native compilation."
+            echo "Version ${{ steps.get_tag.outputs.latest_tag }} is new! Starting the heavy compilation."
             echo "build_needed=true" >> $GITHUB_OUTPUT
           fi
 
@@ -51,26 +51,22 @@ jobs:
         run: |
           git clone --branch ${{ steps.get_tag.outputs.latest_tag }} --depth 1 https://forgejo.ellis.link/continuwuation/continuwuity.git .
 
-      # 5. Dynamically inject our patches into the upstream Dockerfile
+      # 5. Hot-patch the musl Dockerfile for ARM64 bugs and 16KB pages
       - name: Hot-patch the Dockerfile
         if: steps.check_build.outputs.build_needed == 'true'
         run: |
-          # Fix the C-compiler architecture flag for ARM (clang prefers -mcpu over -march for ARM64)
+          # Fix the C-compiler architecture flag for ARM
           sed -i 's/-march=${TARGET_CPU}/-mcpu=${TARGET_CPU}/g' docker/Dockerfile
           
-          # Inject 16KB memory page size support (Required for jemalloc on some modern ARM64 kernels)
+          # Inject 16KB memory page size support
           sed -i '/set -o allexport/a \    export JEMALLOC_SYS_WITH_LG_PAGE=14' docker/Dockerfile
           
-          # Inject extreme optimization: force single thread codegen for absolute maximum "fat" LTO efficiency
-          sed -i '/set -o allexport/a \    export CARGO_PROFILE_RELEASE_MAX_PERF_CODEGEN_UNITS=1' docker/Dockerfile
-
-          # Symlink llvm-ar and llvm-ranlib into the path alongside the other LLVM tools
-          sed -i '/ln -s \/usr\/bin\/wasm-ld/a \    ln -s /usr/bin/llvm-ar-${LLVM_VERSION} /usr/bin/llvm-ar\n    ln -s /usr/bin/llvm-ranlib-${LLVM_VERSION} /usr/bin/llvm-ranlib' docker/Dockerfile
-          
-          # Export AR and RANLIB so cmake and the cc crate use LLVM's archiver instead of GNU ar
-          sed -i '/echo "CXX=clang++"/a \    echo "AR=llvm-ar" >> /etc/environment\n    echo "RANLIB=llvm-ranlib" >> /etc/environment' docker/Dockerfile
-          
           echo "Dockerfile patched successfully."
+
+      # 6. Setup emulation and build tools for ARM64 compilation
+      - name: Set up QEMU (for ARM64 emulation)
+        if: steps.check_build.outputs.build_needed == 'true'
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         if: steps.check_build.outputs.build_needed == 'true'
