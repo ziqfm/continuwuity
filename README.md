@@ -1,2 +1,1 @@
-\# Note: Upstream -maxperf builds are failing, waiting for fix from upstream for v26.6.0
-https://forgejo.ellis.link/continuwuation/continuwuity/issues/1959
+\# Note: Builds were fixed in upstream with v26.6.1
